@@ -16,7 +16,7 @@ def getWX3(url):
             response = requests.get(url,timeout=None)
             now = datetime.now()
             hour1 = int(now.strftime('%H'))-1
-            date_time1 = now.strftime('%Y%m%d_{}00'.format(hour1))
+            date_time1 = now.strftime('%Y%m%d_{:02d}00'.format(hour1))
             date_time2 = now.strftime('%a %d-%m-%Y %H:%M:%S')
             with open("{}_WX3.json".format(date_time1), "w", encoding='UTF-8') as outfile:
                 json.dump(response.json(), outfile, indent=4, ensure_ascii=False)

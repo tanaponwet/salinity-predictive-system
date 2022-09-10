@@ -16,7 +16,7 @@ def getWX24(url):
             response = requests.get(url)
             now = datetime.now()
             date1 = int(now.strftime('%d'))-1
-            date_time1 = int(now.strftime('%Y%m{}'))-1
+            date_time1 = int(now.strftime('%Y%m{:02d}'.format(date1)))-1
             date_time2 = now.strftime('%a %d-%m-%Y %H:%M:%S')
             with open("{}_WX24.json".format(date_time1), "w", encoding='UTF-8') as outfile:
                 json.dump(response.json(), outfile, indent=4, ensure_ascii=False)
