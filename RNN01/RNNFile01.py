@@ -41,7 +41,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 scaler = StandardScaler()
 scaler = scaler.fit(dataset)
-scaled_dataset = scaler.transform(dataset)
+dataset_scaled = scaler.transform(dataset)
 # scaled_dataset = scaler.fit_transform(dataset)
 
 #%%
@@ -60,12 +60,12 @@ valid_set_len = math.ceil(len(dataset) * 0.10)
 # =============================================================================
 
 #%%
-train_set = scaled_dataset[0:train_set_len, :]
+train_set = dataset_scaled[0:train_set_len, :]
 
 x_train = []
 y_train = []
 
-for i in range(n_past, len(train_set) - n_future +1):
+for i in range(n_past, len(train_set) - n_future + 1):
     x_train.append(train_set[i - n_past:i, 0:dataset.shape[1]])
     y_train.append(train_set[i + n_future - 1:i + n_future, 0])
 
@@ -78,12 +78,12 @@ x_train, y_train = np.array(x_train), np.array(y_train)
 # =============================================================================
 
 #%%
-valid_set = scaled_dataset[train_set_len - n_past:train_set_len + valid_set_len, :]
+valid_set = dataset_scaled[train_set_len - n_past:train_set_len + valid_set_len, :]
 
 x_valid = []
 y_valid = []
 
-for i in range(n_past, len(valid_set) - n_future +1):
+for i in range(n_past, len(valid_set) - n_future + 1):
     x_valid.append(valid_set[i - n_past:i, 0:dataset.shape[1]])
     y_valid.append(valid_set[i + n_future - 1:i + n_future, 0])
 
@@ -96,17 +96,21 @@ x_valid, y_valid = np.array(x_valid), np.array(y_valid)
 # =============================================================================    
 
 #%%
-test_set = scaled_dataset[(train_set_len + valid_set_len) - n_past:, :]
+test_set = dataset_scaled[(train_set_len + valid_set_len) - n_past:, :]
+test_real = dataset[(train_set_len + valid_set_len) - n_past:, :]
 
 x_test = []
-y_test = dataset[train_set_len + valid_set_len:, 0]
+# y_test = dataset[train_set_len + valid_set_len:, 0]
+y_test = []
 
-for i in range(n_past, len(test_set)):
+for i in range(n_past, len(test_set) - n_future + 1):
     x_test.append(test_set[i - n_past:i, 0:dataset.shape[1]])
+    y_test.append(test_real[i + n_future - 1:i + n_future, 0])
 
 #%%
-x_test = np.array(x_test)
-y_test = np.reshape(y_test, (y_test.shape[0], 1))
+# x_test = np.array(x_test)
+# y_test = np.reshape(y_test, (y_test.shape[0], 1))
+x_test, y_test = np.array(x_test), np.array(y_test)
 
 #%%
 plt.figure(figsize=(16,8))
@@ -164,7 +168,7 @@ model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mse'])
 model.summary()
 
 #%%
-early_stopping_callback = EarlyStopping(monitor='val_loss', patience=20)
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10)
 
 #%%
 checkpoint_filepath = 'checkpoint/my_model.h5'
@@ -181,7 +185,7 @@ model_checkpoint_callback = ModelCheckpoint(
 model_fit = model.fit(
     x_train,
     y_train,
-    batch_size=4,
+    batch_size=16,
     epochs=100,
     validation_data=(x_valid, y_valid),
     callbacks=[model_checkpoint_callback, early_stopping_callback]
@@ -210,28 +214,35 @@ if dataset.shape[1] > 1:
     pred = np.repeat(pred, dataset.shape[1], axis=-1)
 
 #%%
-prediction = scaler.inverse_transform(pred)[:,0]
+y_pred = scaler.inverse_transform(pred)[:,0]
 
 #%%
-prediction = np.reshape(prediction, (prediction.shape[0], 1))
+y_pred = np.reshape(y_pred, (y_pred.shape[0], 1))
 
 #%%
 from sklearn.metrics import mean_squared_error
 
-rmse = mean_squared_error(y_test, prediction, squared=False)
+rmse = mean_squared_error(y_test, y_pred, squared=False)
 print(rmse)            
 
 #%%
-# rmse = np.sqrt(np.mean(np.square((y_test - prediction))))
+# rmse = np.sqrt(np.mean(np.square((y_test - y_pred))))
 # print(rmse)
 
 #%%
-rmspe = (np.sqrt(np.mean(np.square((y_test - prediction) / y_test)))) * 100
+rmspe = (np.sqrt(np.mean(np.square((y_test - y_pred) / y_test)))) * 100
 print(rmspe)
 
 #%%
+plt.figure(figsize=(16,8))
+plt.plot(y_test, label='y_test')
+plt.plot(y_pred, label='y_pred')
+plt.legend()
+plt.show()
+
+#%%
 df_compare = pd.DataFrame({'Date':df['Date'][train_set_len + valid_set_len:], 'Actual Value':df['EC'][train_set_len + valid_set_len:]})
-df_compare['Predicted Value'] = prediction
+df_compare['Predicted Value'] = y_pred
 
 #%%
 plt.figure(figsize=(16,8))
@@ -328,18 +339,18 @@ class MyHyperModel(keras_tuner.HyperModel):
         
         model.add(Dense(units=1))
         
-        hp_optimizer = hp.Choice("optimizer",values = ["adam","RMSprop","SGD"])
-        hp_learning_rate = hp.Choice('learning_rate', values=[1e-2, 1e-3, 1e-4])
+        # hp_optimizer = hp.Choice("optimizer",values = ["adam","RMSprop","SGD"])
+        # hp_learning_rate = hp.Choice('learning_rate', values=[1e-2, 1e-3, 1e-4])
         
-        optimizer = None
-        if hp_optimizer == "adam":
-            optimizer = Adam(learning_rate = hp_learning_rate)
-        elif hp_optimizer == "RMSprop":
-            optimizer = RMSprop(learning_rate = hp_learning_rate)
-        elif hp_optimizer == "SGD":
-            optimizer = SGD(learning_rate = hp_learning_rate)
+        # optimizer = None
+        # if hp_optimizer == "adam":
+        #     optimizer = Adam(learning_rate = hp_learning_rate)
+        # elif hp_optimizer == "RMSprop":
+        #     optimizer = RMSprop(learning_rate = hp_learning_rate)
+        # elif hp_optimizer == "SGD":
+        #     optimizer = SGD(learning_rate = hp_learning_rate)
         
-        model.compile(optimizer=optimizer,loss='mse',metrics = ['mse'])
+        model.compile(optimizer='adam',loss='mse',metrics = ['mse'])
         
         return model
 
