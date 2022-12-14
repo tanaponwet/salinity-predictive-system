@@ -4,45 +4,83 @@ Created on Sun Nov 13 14:29:00 2022
 
 @author: tanap
 """
+
 #%%
 import numpy as np
 import pandas as pd
 
 #%%
-df_read = pd.read_csv('data/df_resampled_01.csv')
+df_read = pd.read_csv('data/corrected_data.csv')
 
 #%%
 df = df_read.copy()
 print(df.dtypes)
 
 #%%
-df['Date'] = pd.to_datetime(df['Date'])
+df['date'] = pd.to_datetime(df['date'])
 print(df.dtypes)
 
 #%%
-df = df.sort_values(by=['Date'])
+df = df.sort_values(by=['date'])
+
+#%%
+df = df.set_index(pd.DatetimeIndex(df['date'])).drop(['date'], axis=1)
 
 #%%
 import matplotlib.pyplot as plt
 
-plt.figure(figsize=(16,8))
-plt.title('Value History')
+plt.figure(figsize=(16,32))
+plt.subplot(3,1,1)
+plt.title('Displays EC values from March to September.')
 plt.xlabel('Date')
-plt.ylabel('Value')
-plt.plot(df['Date'], df['EC'])
-plt.show()
+plt.ylabel('EC')
+plt.plot(df['ec'], label='OG ec')
+plt.plot(df['ec_new_1'], label='ec_new_1')
+plt.plot(df['ec_new_2'], label='ec_new_2')
+plt.plot(df['ec_new_3'], label='ec_new_3')
+plt.plot(df['ec_new_4'], label='ec_new_4')
+plt.plot(df['ec_new_.5'], label='ec_new_.5')
+plt.legend()
+
+plt.subplot(3,1,2)
+plt.title('Displays Temp. values from March to September.')
+plt.xlabel('Date')
+plt.ylabel('°C')
+plt.plot(df['temperature'], label='OG temp.')
+plt.plot(df['temp_new_1'], label='temp_new_1')
+plt.plot(df['temp_new_2'], label='temp_new_2')
+plt.plot(df['temp_new_3'], label='temp_new_3')
+plt.plot(df['temp_new_4'], label='temp_new_4')
+plt.plot(df['temp_new_.5'], label='temp_new_.5')
+plt.legend()
+
+plt.subplot(3,1,3)
+plt.title('Displays pH. values from March to September.')
+plt.xlabel('Date')
+plt.ylabel('pH')
+plt.plot(df['pH'], label='OG pH')
+plt.plot(df['pH_new_1'], label='pH_new_1')
+plt.plot(df['pH_new_2'], label='pH_new_2')
+plt.plot(df['pH_new_3'], label='pH_new_3')
+plt.plot(df['pH_new_4'], label='pH_new_4')
+plt.plot(df['pH_new_.5'], label='pH_new_.5')
+plt.legend()
 
 #%%
-data = df.filter(['EC'])
+data = df.filter(['ec_new_.5','pH_new_4'])
 dataset = data.values
 
 #%%
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
+# Scales dataset #
 scaler = StandardScaler()
 scaler = scaler.fit(dataset)
 dataset_scaled = scaler.transform(dataset)
-# scaled_dataset = scaler.fit_transform(dataset)
+# dataset_scaled = scaler.fit_transform(dataset)
+
+# Does not scale dataset #
+# dataset_scaled = dataset
 
 #%%
 n_future = 1
@@ -114,12 +152,12 @@ x_test, y_test = np.array(x_test), np.array(y_test)
 
 #%%
 plt.figure(figsize=(16,8))
-plt.title('Train set, Validation set, Test set Visualization')
-plt.xlabel('Data')
-plt.ylabel('Value')
-plt.plot(df[0:train_set_len]['Date'], df[0:train_set_len]['EC'], label='Train')
-plt.plot(df[train_set_len - n_past:train_set_len + valid_set_len]['Date'], df[train_set_len - n_past:train_set_len + valid_set_len]['EC'], label='Validation')
-plt.plot(df[(train_set_len + valid_set_len) - n_past:]['Date'], df[(train_set_len + valid_set_len) - n_past:]['EC'], label='Test')
+plt.title('Displays Train set, Validation set, and Test set.')
+plt.xlabel('Date')
+plt.ylabel('EC')
+plt.plot(df[0:train_set_len]['ec_new_.5'], label='Train')
+plt.plot(df[train_set_len - n_past:train_set_len + valid_set_len]['ec_new_.5'], label='Validation')
+plt.plot(df[(train_set_len + valid_set_len) - n_past:]['ec_new_.5'], label='Test')
 plt.legend()
 plt.show()
 
@@ -151,8 +189,8 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 #%% LSTM
 model = Sequential()
-model.add(LSTM(128, return_sequences=False, input_shape=(x_train.shape[1],x_train.shape[2])))
-# model.add(LSTM(64, return_sequences=False))
+model.add(LSTM(128, return_sequences=True, input_shape=(x_train.shape[1],x_train.shape[2])))
+model.add(LSTM(64, return_sequences=False))
 # model.add(Dense(16))
 model.add(Dense(1))
 
@@ -186,14 +224,14 @@ model_fit = model.fit(
     x_train,
     y_train,
     batch_size=16,
-    epochs=100,
+    epochs=128,
     validation_data=(x_valid, y_valid),
     callbacks=[model_checkpoint_callback, early_stopping_callback]
     )
 
 #%%
 plt.figure(figsize=(16,8))
-plt.title('Loss rate')
+plt.title('Show loss rate.')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.plot(model_fit.history['loss'], label='Training loss')
@@ -223,7 +261,7 @@ y_pred = np.reshape(y_pred, (y_pred.shape[0], 1))
 from sklearn.metrics import mean_squared_error
 
 rmse = mean_squared_error(y_test, y_pred, squared=False)
-print(rmse)            
+print(f'RMSE = {rmse}')            
 
 #%%
 # rmse = np.sqrt(np.mean(np.square((y_test - y_pred))))
@@ -231,7 +269,7 @@ print(rmse)
 
 #%%
 rmspe = (np.sqrt(np.mean(np.square((y_test - y_pred) / y_test)))) * 100
-print(rmspe)
+print(f'RMSPE = {rmspe}')
 
 #%%
 plt.figure(figsize=(16,8))
@@ -241,26 +279,26 @@ plt.legend()
 plt.show()
 
 #%%
-df_compare = pd.DataFrame({'Date':df['Date'][train_set_len + valid_set_len:], 'Actual Value':df['EC'][train_set_len + valid_set_len:]})
-df_compare['Predicted Value'] = y_pred
+df_compare = pd.DataFrame({'Actual EC':df['ec_new_.5'][train_set_len + valid_set_len:]})
+df_compare['Predicted EC'] = y_pred
 
 #%%
 plt.figure(figsize=(16,8))
-plt.title('Actual Value vs. Predicted Value')
+plt.title('Displays Actual EC vs. Predicted EC.')
 plt.xlabel('Date')
 plt.ylabel('Value')
-plt.plot(df_compare['Date'], df_compare['Actual Value'], label='Actual')
-plt.plot(df_compare['Date'], df_compare['Predicted Value'], label='Predicted')
+plt.plot(df_compare['Actual EC'], label='Actual')
+plt.plot(df_compare['Predicted EC'], label='Predicted')
 plt.legend()
 plt.show()
 
 #%%
 plt.figure(figsize=(16,8))
-plt.title('All Actual Value vs. Predicted Value')
+plt.title('Displays All Actual EC vs. Predicted EC.')
 plt.xlabel('Date')
 plt.ylabel('Value')
-plt.plot(df['Date'], df['EC'], label='Actual')
-plt.plot(df_compare['Date'], df_compare['Predicted Value'], label='Predicted')
+plt.plot( df['ec_new_.5'], label='All Actual EC')
+plt.plot(df_compare['Predicted EC'], label='Predicted')
 plt.legend()
 plt.show()
 
